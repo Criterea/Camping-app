@@ -1,0 +1,39 @@
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { Colors, Fonts } from '@/theme';
+
+export default function RootLayout() {
+  return (
+    <>
+      <StatusBar style="dark" />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: Colors.paper },
+          headerTitleStyle: { fontFamily: Fonts.serif, fontSize: 18, fontWeight: '600' },
+          headerTintColor: Colors.ink,
+          contentStyle: { backgroundColor: Colors.paper },
+          headerShadowVisible: false,
+        }}
+      >
+        <Stack.Screen name="index" options={{ title: 'Trail Journal' }} />
+        <Stack.Screen
+          name="trip/new"
+          options={{ title: 'New Trip', presentation: 'modal' }}
+        />
+        <Stack.Screen name="trip/[id]/index" options={{ title: '' }} />
+        <Stack.Screen
+          name="trip/[id]/section/new"
+          options={{ title: 'New Chapter', presentation: 'modal' }}
+        />
+        <Stack.Screen
+          name="trip/[id]/section/[sectionId]/index"
+          options={{ title: '' }}
+        />
+        <Stack.Screen
+          name="trip/[id]/section/[sectionId]/camera"
+          options={{ headerShown: false, presentation: 'fullScreenModal' }}
+        />
+      </Stack>
+    </>
+  );
+}
