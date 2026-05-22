@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors, Fonts } from '@/theme';
+import '@/lib/location-task';
 
 export default function RootLayout() {
   return (
@@ -26,6 +27,7 @@ export default function RootLayout() {
           name="trip/[id]/edit"
           options={{ title: 'Edit Trip', presentation: 'modal' }}
         />
+        <Stack.Screen name="trip/[id]/map" options={{ title: 'Map' }} />
         <Stack.Screen
           name="trip/[id]/section/new"
           options={{ title: 'New Chapter', presentation: 'modal' }}

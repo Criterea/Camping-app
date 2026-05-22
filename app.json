@@ -27,7 +27,12 @@
         "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_AUDIO"
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ]
     },
     "web": {
@@ -64,11 +69,16 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Trail Journal uses your location to tag trips with where they happened."
+          "locationAlwaysAndWhenInUsePermission": "Trail Journal uses your location to tag trips, record the drive there, and mark waypoints — even when the app is in the background.",
+          "locationWhenInUsePermission": "Trail Journal uses your location to tag trips and photos with where they happened.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-maps"
     ],
     "experiments": {
       "typedRoutes": true,

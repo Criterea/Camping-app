@@ -33,6 +33,9 @@ export async function savePhoto(opts: {
   tripId: number;
   sourceUri: string;
   saveToLibrary: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  takenAt?: string | null;
 }): Promise<SavedPhoto> {
   const dir = photosDir();
   const name = uniqueName(extFromUri(opts.sourceUri));
@@ -57,9 +60,11 @@ export async function savePhoto(opts: {
     section_id: opts.sectionId,
     local_uri: dest.uri,
     media_library_id: mediaLibraryId,
+    latitude: opts.latitude ?? null,
+    longitude: opts.longitude ?? null,
+    taken_at: opts.takenAt ?? null,
   });
 
-  // First photo for the trip becomes its cover (no-op if already set).
   try {
     await setTripCoverIfMissing(opts.tripId, dest.uri);
   } catch {}
@@ -72,4 +77,46 @@ export async function deletePhotoFile(photo: Photo): Promise<void> {
     const file = new File(photo.local_uri);
     if (file.exists) file.delete();
   } catch {}
+}
+
+// --- EXIF helpers ---
+
+type ExifLike = Record<string, unknown> | null | undefined;
+
+function dmsToDecimal(value: unknown, ref: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const sign = typeof ref === 'string' && (ref === 'S' || ref === 'W') ? -1 : 1;
+    return value * (value < 0 ? 1 : sign);
+  }
+  if (Array.isArray(value) && value.length >= 3) {
+    const [d, m, s] = value.map((n) => (typeof n === 'number' ? n : Number(n)));
+    if (![d, m, s].every(Number.isFinite)) return null;
+    const decimal = Math.abs(d) + m / 60 + s / 3600;
+    const sign = typeof ref === 'string' && (ref === 'S' || ref === 'W') ? -1 : 1;
+    return decimal * sign;
+  }
+  return null;
+}
+
+export function extractExifLocation(exif: ExifLike): { latitude: number; longitude: number } | null {
+  if (!exif) return null;
+  const lat = dmsToDecimal(exif.GPSLatitude, exif.GPSLatitudeRef);
+  const lng = dmsToDecimal(exif.GPSLongitude, exif.GPSLongitudeRef);
+  if (lat == null || lng == null) return null;
+  if (lat === 0 && lng === 0) return null;
+  return { latitude: lat, longitude: lng };
+}
+
+export function extractExifDate(exif: ExifLike): string | null {
+  if (!exif) return null;
+  const raw = exif.DateTimeOriginal ?? exif.DateTime ?? exif.DateTimeDigitized;
+  if (typeof raw !== 'string') return null;
+  // EXIF format: "YYYY:MM:DD HH:MM:SS"
+  const m = raw.match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s] = m;
+  const iso = `${y}-${mo}-${d}T${h}:${mi}:${s}`;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
 }

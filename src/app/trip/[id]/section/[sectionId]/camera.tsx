@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { savePhoto } from '@/lib/photo-store';
 import { Colors, Fonts } from '@/theme';
 
@@ -85,11 +86,26 @@ export default function CameraScreen() {
         skipProcessing: false,
       });
       if (!photo?.uri) throw new Error('No photo returned from camera');
+
+      let latitude: number | null = null;
+      let longitude: number | null = null;
+      try {
+        const last = await Location.getLastKnownPositionAsync({ maxAge: 60_000 });
+        const pos =
+          last ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+        latitude = pos.coords.latitude;
+        longitude = pos.coords.longitude;
+      } catch {
+        // GPS unavailable: photo still saves without location
+      }
+
       await savePhoto({
         sectionId: sId,
         tripId,
         sourceUri: photo.uri,
         saveToLibrary: true,
+        latitude,
+        longitude,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();

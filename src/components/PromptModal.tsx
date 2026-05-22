@@ -13,12 +13,29 @@ import { Colors, Fonts, Spacing, Radius } from '@/theme';
 
 type Props = {
   visible: boolean;
-  initialValue: string;
+  title: string;
+  subtitle?: string;
+  placeholder?: string;
+  initialValue?: string;
+  multiline?: boolean;
+  maxLength?: number;
+  saveLabel?: string;
   onCancel: () => void;
   onSave: (value: string) => void;
 };
 
-export function CaptionEditor({ visible, initialValue, onCancel, onSave }: Props) {
+export function PromptModal({
+  visible,
+  title,
+  subtitle,
+  placeholder,
+  initialValue = '',
+  multiline = false,
+  maxLength,
+  saveLabel = 'Save',
+  onCancel,
+  onSave,
+}: Props) {
   const [value, setValue] = useState(initialValue);
 
   useEffect(() => {
@@ -26,52 +43,37 @@ export function CaptionEditor({ visible, initialValue, onCancel, onSave }: Props
   }, [visible, initialValue]);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onCancel}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.backdrop}
       >
         <Pressable style={styles.backdropPress} onPress={onCancel} />
         <View style={styles.card}>
-          <Text style={styles.title}>Caption</Text>
-          <Text style={styles.subtitle}>
-            A short caption shown under the photo.
-          </Text>
+          <Text style={styles.title}>{title}</Text>
+          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           <TextInput
             value={value}
             onChangeText={setValue}
-            placeholder="What's happening in this photo?"
+            placeholder={placeholder}
             placeholderTextColor={Colors.inkFaint}
-            style={styles.input}
+            style={[styles.input, multiline ? styles.inputMultiline : null]}
             autoFocus
-            multiline
-            maxLength={140}
+            multiline={multiline}
+            maxLength={maxLength}
           />
           <View style={styles.actions}>
             <Pressable
               onPress={onCancel}
-              style={({ pressed }) => [
-                styles.btn,
-                styles.btnGhost,
-                pressed && { opacity: 0.7 },
-              ]}
+              style={({ pressed }) => [styles.btn, styles.btnGhost, pressed && { opacity: 0.7 }]}
             >
               <Text style={styles.btnGhostLabel}>Cancel</Text>
             </Pressable>
             <Pressable
               onPress={() => onSave(value.trim())}
-              style={({ pressed }) => [
-                styles.btn,
-                styles.btnPrimary,
-                pressed && { opacity: 0.85 },
-              ]}
+              style={({ pressed }) => [styles.btn, styles.btnPrimary, pressed && { opacity: 0.85 }]}
             >
-              <Text style={styles.btnPrimaryLabel}>Save</Text>
+              <Text style={styles.btnPrimaryLabel}>{saveLabel}</Text>
             </Pressable>
           </View>
         </View>
@@ -128,6 +130,9 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.serif,
     fontSize: 16,
     color: Colors.ink,
+    marginTop: Spacing.sm,
+  },
+  inputMultiline: {
     minHeight: 80,
     textAlignVertical: 'top',
   },

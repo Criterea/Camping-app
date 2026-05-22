@@ -16,6 +16,7 @@ import {
   useRouter,
 } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import DraggableFlatList, {
   ScaleDecorator,
   type RenderItemParams,
@@ -30,16 +31,33 @@ import {
   type Photo,
   type Section,
 } from '@/lib/db';
-import { savePhoto, deletePhotoFile } from '@/lib/photo-store';
+import {
+  savePhoto,
+  deletePhotoFile,
+  extractExifLocation,
+  extractExifDate,
+} from '@/lib/photo-store';
 import { getPreset } from '@/section-types';
 import { PaperBackground } from '@/components/PaperBackground';
 import { FAB } from '@/components/FAB';
-import { CaptionEditor } from '@/components/CaptionEditor';
+import { PromptModal } from '@/components/PromptModal';
 import { Colors, Fonts, Spacing, Radius } from '@/theme';
 
 const screenWidth = Dimensions.get('window').width;
 const TILE_WIDTH = screenWidth - Spacing.lg * 2;
 const TILE_HEIGHT = Math.round(TILE_WIDTH * 0.66);
+
+function formatPhotoDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
 
 export default function SectionDetail() {
   const { id, sectionId } = useLocalSearchParams<{
@@ -97,14 +115,34 @@ export default function SectionDetail() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       quality: 0.9,
+      exif: true,
     });
     if (result.canceled || !result.assets.length) return;
+    const asset = result.assets[0];
     try {
+      const exifLocation = extractExifLocation(asset.exif);
+      const takenAt = extractExifDate(asset.exif);
+      let latitude = exifLocation?.latitude ?? null;
+      let longitude = exifLocation?.longitude ?? null;
+      if (latitude == null && Platform.OS !== 'web') {
+        try {
+          const last = await Location.getLastKnownPositionAsync({ maxAge: 60_000 });
+          if (last) {
+            latitude = last.coords.latitude;
+            longitude = last.coords.longitude;
+          }
+        } catch {
+          // ignore
+        }
+      }
       await savePhoto({
         sectionId: sId,
         tripId,
-        sourceUri: result.assets[0].uri,
+        sourceUri: asset.uri,
         saveToLibrary: false,
+        latitude,
+        longitude,
+        takenAt,
       });
       await load();
     } catch (err) {
@@ -113,7 +151,13 @@ export default function SectionDetail() {
   }
 
   function onPhotoPress(photo: Photo) {
-    Alert.alert('Photo', photo.caption ?? 'No caption', [
+    const parts: string[] = [];
+    if (photo.caption) parts.push(photo.caption);
+    parts.push(`Taken ${formatPhotoDate(photo.taken_at)}`);
+    if (photo.latitude != null && photo.longitude != null) {
+      parts.push(`At ${photo.latitude.toFixed(5)}, ${photo.longitude.toFixed(5)}`);
+    }
+    Alert.alert('Photo', parts.join('\n'), [
       {
         text: 'Edit Caption',
         onPress: () => setEditingPhoto(photo),
@@ -261,9 +305,14 @@ export default function SectionDetail() {
         }
       />
       <FAB label="Add Photo" onPress={onAddPhoto} icon="📷" />
-      <CaptionEditor
+      <PromptModal
         visible={editingPhoto !== null}
+        title="Caption"
+        subtitle="A short caption shown under the photo."
+        placeholder="What's happening in this photo?"
         initialValue={editingPhoto?.caption ?? ''}
+        multiline
+        maxLength={140}
         onCancel={() => setEditingPhoto(null)}
         onSave={saveCaption}
       />
