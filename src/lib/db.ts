@@ -1,7 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
 const DB_NAME = 'trailjournal.db';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -52,6 +52,16 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
       CREATE INDEX IF NOT EXISTS idx_sections_trip ON sections(trip_id);
       CREATE INDEX IF NOT EXISTS idx_photos_section ON photos(section_id);
     `);
+  }
+
+  if (current < 2) {
+    await db.execAsync(`
+      ALTER TABLE trips ADD COLUMN latitude REAL;
+      ALTER TABLE trips ADD COLUMN longitude REAL;
+    `);
+  }
+
+  if (current < SCHEMA_VERSION) {
     await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   }
 
@@ -66,6 +76,8 @@ export type Trip = {
   end_date: string | null;
   cover_photo_uri: string | null;
   notes: string | null;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
 };
 
@@ -106,24 +118,48 @@ export async function getTrip(id: number): Promise<Trip | null> {
   return row ?? null;
 }
 
-export async function createTrip(input: {
+export type TripInput = {
   title: string;
   location?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   notes?: string | null;
-}): Promise<number> {
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
+export async function createTrip(input: TripInput): Promise<number> {
   const db = await getDb();
   const result = await db.runAsync(
-    `INSERT INTO trips (title, location, start_date, end_date, notes)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO trips (title, location, start_date, end_date, notes, latitude, longitude)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     input.title,
     input.location ?? null,
     input.start_date ?? null,
     input.end_date ?? null,
     input.notes ?? null,
+    input.latitude ?? null,
+    input.longitude ?? null,
   );
   return result.lastInsertRowId;
+}
+
+export async function updateTrip(id: number, input: TripInput): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE trips
+     SET title = ?, location = ?, start_date = ?, end_date = ?, notes = ?,
+         latitude = ?, longitude = ?
+     WHERE id = ?`,
+    input.title,
+    input.location ?? null,
+    input.start_date ?? null,
+    input.end_date ?? null,
+    input.notes ?? null,
+    input.latitude ?? null,
+    input.longitude ?? null,
+    id,
+  );
 }
 
 export async function updateTripCover(tripId: number, coverUri: string): Promise<void> {
@@ -185,6 +221,20 @@ export async function createSection(input: {
   return result.lastInsertRowId;
 }
 
+export async function updateSection(
+  id: number,
+  input: { type: SectionType; title: string; notes?: string | null },
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE sections SET type = ?, title = ?, notes = ? WHERE id = ?`,
+    input.type,
+    input.title,
+    input.notes ?? null,
+    id,
+  );
+}
+
 export async function deleteSection(id: number): Promise<void> {
   const db = await getDb();
   await db.runAsync('DELETE FROM sections WHERE id = ?', id);
@@ -195,7 +245,7 @@ export async function deleteSection(id: number): Promise<void> {
 export async function listPhotos(sectionId: number): Promise<Photo[]> {
   const db = await getDb();
   return db.getAllAsync<Photo>(
-    'SELECT * FROM photos WHERE section_id = ? ORDER BY taken_at ASC',
+    'SELECT * FROM photos WHERE section_id = ? ORDER BY order_index ASC, taken_at ASC',
     sectionId,
   );
 }
@@ -220,13 +270,19 @@ export async function createPhoto(input: {
   caption?: string | null;
 }): Promise<number> {
   const db = await getDb();
+  const max = await db.getFirstAsync<{ max_order: number | null }>(
+    'SELECT MAX(order_index) as max_order FROM photos WHERE section_id = ?',
+    input.section_id,
+  );
+  const next = (max?.max_order ?? -1) + 1;
   const result = await db.runAsync(
-    `INSERT INTO photos (section_id, local_uri, media_library_id, caption)
-     VALUES (?, ?, ?, ?)`,
+    `INSERT INTO photos (section_id, local_uri, media_library_id, caption, order_index)
+     VALUES (?, ?, ?, ?, ?)`,
     input.section_id,
     input.local_uri,
     input.media_library_id ?? null,
     input.caption ?? null,
+    next,
   );
   return result.lastInsertRowId;
 }
@@ -234,6 +290,20 @@ export async function createPhoto(input: {
 export async function updatePhotoCaption(id: number, caption: string): Promise<void> {
   const db = await getDb();
   await db.runAsync('UPDATE photos SET caption = ? WHERE id = ?', caption, id);
+}
+
+export async function reorderPhotos(sectionId: number, orderedIds: number[]): Promise<void> {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db.runAsync(
+        'UPDATE photos SET order_index = ? WHERE id = ? AND section_id = ?',
+        i,
+        orderedIds[i],
+        sectionId,
+      );
+    }
+  });
 }
 
 export async function deletePhoto(id: number): Promise<void> {

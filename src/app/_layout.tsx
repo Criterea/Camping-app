@@ -1,10 +1,11 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors, Fonts } from '@/theme';
 
 export default function RootLayout() {
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -22,6 +23,10 @@ export default function RootLayout() {
         />
         <Stack.Screen name="trip/[id]/index" options={{ title: '' }} />
         <Stack.Screen
+          name="trip/[id]/edit"
+          options={{ title: 'Edit Trip', presentation: 'modal' }}
+        />
+        <Stack.Screen
           name="trip/[id]/section/new"
           options={{ title: 'New Chapter', presentation: 'modal' }}
         />
@@ -30,10 +35,14 @@ export default function RootLayout() {
           options={{ title: '' }}
         />
         <Stack.Screen
+          name="trip/[id]/section/[sectionId]/edit"
+          options={{ title: 'Edit Chapter', presentation: 'modal' }}
+        />
+        <Stack.Screen
           name="trip/[id]/section/[sectionId]/camera"
           options={{ headerShown: false, presentation: 'fullScreenModal' }}
         />
       </Stack>
-    </>
+    </GestureHandlerRootView>
   );
 }

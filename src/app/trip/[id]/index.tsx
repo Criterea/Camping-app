@@ -83,9 +83,17 @@ export default function TripDetail() {
         options={{
           title: '',
           headerRight: () => (
-            <Pressable onPress={onDelete} hitSlop={8}>
-              <Text style={styles.deleteText}>Delete</Text>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push(`/trip/${tripId}/edit`)}
+                hitSlop={8}
+              >
+                <Text style={styles.editText}>Edit</Text>
+              </Pressable>
+              <Pressable onPress={onDelete} hitSlop={8}>
+                <Text style={styles.deleteText}>Delete</Text>
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -231,6 +239,16 @@ const styles = StyleSheet.create({
     color: Colors.inkFaint,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  editText: {
+    fontFamily: Fonts.sans,
+    fontSize: 15,
+    color: Colors.accentDeep,
   },
   deleteText: {
     fontFamily: Fonts.sans,

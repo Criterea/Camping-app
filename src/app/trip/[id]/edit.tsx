@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,19 +11,11 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { createTrip } from '@/lib/db';
+import { getTrip, updateTrip } from '@/lib/db';
 import { PaperBackground } from '@/components/PaperBackground';
 import { Colors, Fonts, Spacing, Radius } from '@/theme';
-
-function todayISO() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
 
 function formatPlace(p: Location.LocationGeocodedAddress | undefined): string {
   if (!p) return '';
@@ -34,17 +26,41 @@ function formatPlace(p: Location.LocationGeocodedAddress | undefined): string {
   return parts.join(', ');
 }
 
-export default function NewTrip() {
+export default function EditTrip() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const tripId = Number(id);
   const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
-  const [startDate, setStartDate] = useState(todayISO());
+  const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [notes, setNotes] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!Number.isFinite(tripId)) return;
+      const t = await getTrip(tripId);
+      if (cancelled || !t) return;
+      setTitle(t.title);
+      setLocation(t.location ?? '');
+      setStartDate(t.start_date ?? '');
+      setEndDate(t.end_date ?? '');
+      setNotes(t.notes ?? '');
+      setLatitude(t.latitude);
+      setLongitude(t.longitude);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tripId]);
 
   async function useCurrentLocation() {
     setLocating(true);
@@ -78,12 +94,12 @@ export default function NewTrip() {
 
   async function save() {
     if (!title.trim()) {
-      Alert.alert('Title needed', 'Give your trip a name to start.');
+      Alert.alert('Title needed', 'Give your trip a name.');
       return;
     }
     setSaving(true);
     try {
-      const id = await createTrip({
+      await updateTrip(tripId, {
         title: title.trim(),
         location: location.trim() || null,
         start_date: startDate.trim() || null,
@@ -92,11 +108,21 @@ export default function NewTrip() {
         latitude,
         longitude,
       });
-      router.replace(`/trip/${id}`);
+      router.back();
     } catch (err) {
       Alert.alert('Could not save', String(err));
       setSaving(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <PaperBackground>
+        <View style={styles.loading}>
+          <ActivityIndicator color={Colors.accentDeep} />
+        </View>
+      </PaperBackground>
+    );
   }
 
   return (
@@ -106,15 +132,13 @@ export default function NewTrip() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.heading}>A new adventure</Text>
-          <Text style={styles.sub}>Name it. Locate it. Begin the chapter.</Text>
+          <Text style={styles.heading}>Edit trip</Text>
 
           <Field
             label="Title"
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. Three nights in the Grampians"
-            autoFocus
           />
           <Field
             label="Location"
@@ -175,7 +199,7 @@ export default function NewTrip() {
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           >
             <Text style={styles.buttonLabel}>
-              {saving ? 'Saving…' : 'Begin Trip'}
+              {saving ? 'Saving…' : 'Save Changes'}
             </Text>
           </Pressable>
         </ScrollView>
@@ -190,7 +214,6 @@ type FieldProps = {
   onChangeText: (s: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  autoFocus?: boolean;
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   inputStyle?: any;
 };
@@ -201,7 +224,6 @@ function Field({
   onChangeText,
   placeholder,
   multiline,
-  autoFocus,
   autoCapitalize,
   inputStyle,
 }: FieldProps) {
@@ -213,7 +235,6 @@ function Field({
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={Colors.inkFaint}
-        autoFocus={autoFocus}
         autoCapitalize={autoCapitalize}
         multiline={multiline}
         style={[styles.input, inputStyle]}
@@ -223,6 +244,11 @@ function Field({
 }
 
 const styles = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scroll: {
     padding: Spacing.lg,
     paddingBottom: Spacing.xxxl,
@@ -232,12 +258,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: Colors.ink,
-  },
-  sub: {
-    fontFamily: Fonts.serif,
-    fontStyle: 'italic',
-    fontSize: 14,
-    color: Colors.inkSoft,
     marginBottom: Spacing.xl,
   },
   field: {

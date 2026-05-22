@@ -61,6 +61,12 @@
           "isAccessMediaLocationEnabled": true
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Trail Journal uses your location to tag trips with where they happened."
+        }
+      ],
       "expo-font",
       "expo-web-browser"
     ],

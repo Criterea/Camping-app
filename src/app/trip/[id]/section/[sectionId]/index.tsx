@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  FlatList,
   Alert,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import {
@@ -16,11 +16,16 @@ import {
   useRouter,
 } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import DraggableFlatList, {
+  ScaleDecorator,
+  type RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import {
   deletePhoto,
   deleteSection,
   getSection,
   listPhotos,
+  reorderPhotos,
   updatePhotoCaption,
   type Photo,
   type Section,
@@ -33,8 +38,8 @@ import { CaptionEditor } from '@/components/CaptionEditor';
 import { Colors, Fonts, Spacing, Radius } from '@/theme';
 
 const screenWidth = Dimensions.get('window').width;
-const COL_GAP = Spacing.sm;
-const TILE_SIZE = (screenWidth - Spacing.lg * 2 - COL_GAP) / 2;
+const TILE_WIDTH = screenWidth - Spacing.lg * 2;
+const TILE_HEIGHT = Math.round(TILE_WIDTH * 0.66);
 
 export default function SectionDetail() {
   const { id, sectionId } = useLocalSearchParams<{
@@ -65,6 +70,10 @@ export default function SectionDetail() {
   const preset = section ? getPreset(section.type) : null;
 
   function onAddPhoto() {
+    if (Platform.OS === 'web') {
+      pickFromLibrary();
+      return;
+    }
     Alert.alert('Add a photo', undefined, [
       {
         text: 'Take Photo',
@@ -155,44 +164,72 @@ export default function SectionDetail() {
     ]);
   }
 
+  async function onDragEnd(data: Photo[]) {
+    setPhotos(data);
+    try {
+      await reorderPhotos(sId, data.map((p) => p.id));
+    } catch (err) {
+      Alert.alert('Could not save order', String(err));
+      await load();
+    }
+  }
+
+  const renderItem = ({ item, drag, isActive }: RenderItemParams<Photo>) => (
+    <ScaleDecorator>
+      <Pressable
+        onPress={() => onPhotoPress(item)}
+        onLongPress={drag}
+        delayLongPress={200}
+        disabled={isActive}
+        style={({ pressed }) => [
+          styles.tile,
+          (pressed || isActive) && styles.tilePressed,
+        ]}
+      >
+        <Image
+          source={{ uri: item.local_uri }}
+          style={styles.image}
+          contentFit="cover"
+          transition={150}
+        />
+        {item.caption ? (
+          <View style={styles.captionStrip}>
+            <Text style={styles.captionText} numberOfLines={2}>
+              {item.caption}
+            </Text>
+          </View>
+        ) : null}
+      </Pressable>
+    </ScaleDecorator>
+  );
+
   return (
     <PaperBackground>
       <Stack.Screen
         options={{
           title: '',
           headerRight: () => (
-            <Pressable onPress={onDeleteSection} hitSlop={8}>
-              <Text style={styles.deleteText}>Delete</Text>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                onPress={() => router.push(`/trip/${tripId}/section/${sId}/edit`)}
+                hitSlop={8}
+              >
+                <Text style={styles.editText}>Edit</Text>
+              </Pressable>
+              <Pressable onPress={onDeleteSection} hitSlop={8}>
+                <Text style={styles.deleteText}>Delete</Text>
+              </Pressable>
+            </View>
           ),
         }}
       />
-      <FlatList
+      <DraggableFlatList
         data={photos}
         keyExtractor={(item) => String(item.id)}
-        numColumns={2}
-        columnWrapperStyle={styles.columnWrap}
+        onDragEnd={({ data }) => onDragEnd(data)}
+        renderItem={renderItem}
+        containerStyle={{ flex: 1 }}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => onPhotoPress(item)}
-            style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
-          >
-            <Image
-              source={{ uri: item.local_uri }}
-              style={styles.image}
-              contentFit="cover"
-              transition={150}
-            />
-            {item.caption ? (
-              <View style={styles.captionStrip}>
-                <Text style={styles.captionText} numberOfLines={2}>
-                  {item.caption}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
-        )}
         ListHeaderComponent={
           section && preset ? (
             <View style={styles.header}>
@@ -203,6 +240,14 @@ export default function SectionDetail() {
                 </Text>
               </View>
               <Text style={styles.title}>{section.title}</Text>
+              {section.notes ? (
+                <Text style={styles.notes}>{section.notes}</Text>
+              ) : null}
+              {photos.length > 1 ? (
+                <Text style={styles.reorderHint}>
+                  Tip: long-press a photo to reorder.
+                </Text>
+              ) : null}
             </View>
           ) : null
         }
@@ -261,12 +306,23 @@ const styles = StyleSheet.create({
     color: Colors.ink,
     lineHeight: 34,
   },
-  columnWrap: {
-    gap: COL_GAP,
-    marginBottom: COL_GAP,
+  notes: {
+    fontFamily: Fonts.serif,
+    fontSize: 15,
+    color: Colors.ink,
+    marginTop: Spacing.md,
+    lineHeight: 22,
+  },
+  reorderHint: {
+    fontFamily: Fonts.serif,
+    fontStyle: 'italic',
+    fontSize: 12,
+    color: Colors.inkFaint,
+    marginTop: Spacing.md,
   },
   tile: {
-    width: TILE_SIZE,
+    width: TILE_WIDTH,
+    marginBottom: Spacing.md,
     backgroundColor: '#FFFDF6',
     borderRadius: Radius.md,
     overflow: 'hidden',
@@ -279,21 +335,21 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tilePressed: {
-    opacity: 0.85,
+    opacity: 0.9,
     transform: [{ scale: 0.98 }],
   },
   image: {
     width: '100%',
-    height: TILE_SIZE,
+    height: TILE_HEIGHT,
     backgroundColor: Colors.paperEdge,
   },
   captionStrip: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   captionText: {
     fontFamily: Fonts.serif,
-    fontSize: 12,
+    fontSize: 14,
     color: Colors.ink,
   },
   empty: {
@@ -313,6 +369,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.inkFaint,
     textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  editText: {
+    fontFamily: Fonts.sans,
+    fontSize: 15,
+    color: Colors.accentDeep,
   },
   deleteText: {
     fontFamily: Fonts.sans,

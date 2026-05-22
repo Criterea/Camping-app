@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
@@ -27,6 +28,24 @@ export default function CameraScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>('back');
   const [capturing, setCapturing] = useState(false);
+
+  if (Platform.OS === 'web') {
+    return (
+      <SafeAreaView style={[styles.root, styles.center]}>
+        <Text style={styles.permTitle}>Camera not available</Text>
+        <Text style={styles.permText}>
+          The in-app camera only runs on iOS and Android. Use "Pick from Library"
+          to add photos here.
+        </Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.permButton, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.permButtonLabel}>Back</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   if (!permission) {
     return (
