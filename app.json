@@ -60,7 +60,9 @@
           "savePhotosPermission": "Trail Journal saves your trip photos to your iPhone Photos library.",
           "isAccessMediaLocationEnabled": true
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
