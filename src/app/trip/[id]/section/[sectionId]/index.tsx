@@ -29,6 +29,7 @@ import { savePhoto, deletePhotoFile } from '@/lib/photo-store';
 import { getPreset } from '@/section-types';
 import { PaperBackground } from '@/components/PaperBackground';
 import { FAB } from '@/components/FAB';
+import { CaptionEditor } from '@/components/CaptionEditor';
 import { Colors, Fonts, Spacing, Radius } from '@/theme';
 
 const screenWidth = Dimensions.get('window').width;
@@ -46,6 +47,7 @@ export default function SectionDetail() {
 
   const [section, setSection] = useState<Section | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(sId)) return;
@@ -105,7 +107,7 @@ export default function SectionDetail() {
     Alert.alert('Photo', photo.caption ?? 'No caption', [
       {
         text: 'Edit Caption',
-        onPress: () => promptCaption(photo),
+        onPress: () => setEditingPhoto(photo),
       },
       {
         text: 'Delete',
@@ -116,23 +118,11 @@ export default function SectionDetail() {
     ]);
   }
 
-  function promptCaption(photo: Photo) {
-    Alert.prompt(
-      'Caption',
-      'A short caption shown under the photo.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Save',
-          onPress: async (value?: string) => {
-            await updatePhotoCaption(photo.id, (value ?? '').trim());
-            await load();
-          },
-        },
-      ],
-      'plain-text',
-      photo.caption ?? '',
-    );
+  async function saveCaption(value: string) {
+    if (!editingPhoto) return;
+    await updatePhotoCaption(editingPhoto.id, value);
+    setEditingPhoto(null);
+    await load();
   }
 
   function confirmDeletePhoto(photo: Photo) {
@@ -226,6 +216,12 @@ export default function SectionDetail() {
         }
       />
       <FAB label="Add Photo" onPress={onAddPhoto} icon="📷" />
+      <CaptionEditor
+        visible={editingPhoto !== null}
+        initialValue={editingPhoto?.caption ?? ''}
+        onCancel={() => setEditingPhoto(null)}
+        onSave={saveCaption}
+      />
     </PaperBackground>
   );
 }
