@@ -18,6 +18,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'Trail Journal' }} />
+        <Stack.Screen name="explore" options={{ title: 'Explore' }} />
         <Stack.Screen
           name="trip/new"
           options={{ title: 'New Trip', presentation: 'modal' }}

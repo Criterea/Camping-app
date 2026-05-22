@@ -282,6 +282,13 @@ export async function listRoutePoints(tripId: number): Promise<RoutePoint[]> {
   );
 }
 
+export async function listAllRoutePoints(): Promise<RoutePoint[]> {
+  const db = await getDb();
+  return db.getAllAsync<RoutePoint>(
+    'SELECT * FROM trip_route_points ORDER BY trip_id ASC, recorded_at ASC',
+  );
+}
+
 export type RouteStats = {
   pointCount: number;
   distanceMeters: number;

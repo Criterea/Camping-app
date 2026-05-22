@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { FlatList, View, Text, StyleSheet } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { FlatList, View, Text, StyleSheet, Pressable } from 'react-native';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { listTrips, countPhotosForTrip, listTripPhotos, type Trip } from '@/lib/db';
 import { TripCoverCard } from '@/components/TripCoverCard';
 import { FAB } from '@/components/FAB';
@@ -39,6 +39,16 @@ export default function Home() {
 
   return (
     <PaperBackground>
+      <Stack.Screen
+        options={{
+          title: 'Trail Journal',
+          headerRight: () => (
+            <Pressable onPress={() => router.push('/explore' as never)} hitSlop={8}>
+              <Text style={styles.mapLink}>Map</Text>
+            </Pressable>
+          ),
+        }}
+      />
       <FlatList
         data={trips}
         keyExtractor={(item) => String(item.trip.id)}
@@ -110,5 +120,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.inkFaint,
     textAlign: 'center',
+  },
+  mapLink: {
+    fontFamily: Fonts.sans,
+    fontSize: 15,
+    color: Colors.accentDeep,
+    fontWeight: '600',
   },
 });
